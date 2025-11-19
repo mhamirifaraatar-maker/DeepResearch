@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 from typing import List, Dict
 from google import genai
-from .config import GEMINI_KEY, JOURNAL_H_INDEX_THRESHOLD, MAX_TOKENS_PER_URL, BIBLIO_FILE, MAX_SNIPPETS_TO_KEEP
+from .config import GEMINI_KEY, JOURNAL_H_INDEX_THRESHOLD, MAX_TOKENS_PER_URL, BIBLIO_FILE, MAX_SNIPPETS_TO_KEEP, MIN_CITATION_COUNT
 from .processing import Snippet, compress_text, is_quality_page, semantic_dedup
 from .utils import logger, log_error
 
@@ -115,13 +115,12 @@ async def filter_snippets(snippets: List[Snippet]) -> List[Snippet]:
         # Compress and validate
         txt = compress_text(s.body, MAX_TOKENS_PER_URL)
         
-        # Filter by H-Index for academic sources
+        # Filter by citation count for academic sources
         if s.source_type == "semantic_scholar":
-            h_index = s.metadata.get("h_index", 0)
-            # Note: H-index fetching was in original but complex to implement reliably without extra API calls.
-            # Assuming metadata might not have it populated yet, so we skip this check or implement it if we had the data.
-            # For now, we'll keep the logic but it might be 0.
-            pass
+            citations = s.metadata.get("citations", 0)
+            if citations < MIN_CITATION_COUNT:
+                logger.debug(f"Filtered snippet '{s.title}' - citations: {citations} < {MIN_CITATION_COUNT}")
+                continue
 
         if txt and is_quality_page(txt, s.source_type):
             bodies.append(txt)

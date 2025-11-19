@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import urllib.parse
 from typing import List, Dict, Any
-from .config import BRAVE_API_KEY, MAX_URLS_PER_SOURCE, USER_AGENT, CONCURRENCY
+from .config import BRAVE_API_KEY, MAX_URLS_PER_SOURCE, USER_AGENT, CONCURRENCY, MIN_CITATION_COUNT
 from .processing import Snippet, pdf_to_text, docx_to_text, is_quality_page, compress_text
 from .utils import logger
 
@@ -164,11 +164,17 @@ async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int =
 
     async def process_paper(session, p):
         try:
+            # Filter by citation count
+            citation_count = p.get("citationCount", 0)
+            if citation_count < MIN_CITATION_COUNT:
+                logger.debug(f"Filtered paper '{p.get('title', 'Unknown')}' - citations: {citation_count} < {MIN_CITATION_COUNT}")
+                return None
+            
             # Construct metadata
             meta = {
                 "year": p.get("year"),
                 "journal": p.get("venue"),
-                "citations": p.get("citationCount"),
+                "citations": citation_count,
                 "authors": [a["name"] for a in p.get("authors", [])],
                 "has_open_access": bool(p.get("openAccessPdf"))
             }

@@ -17,6 +17,7 @@ MAX_SNIPPETS_TO_KEEP = int(os.getenv("MAX_SNIPPETS_TO_KEEP", 100))
 EST_CHAR_PER_TOKEN = 4
 CONCURRENCY = int(os.getenv("CONCURRENCY", 5))  # Increased default concurrency
 JOURNAL_H_INDEX_THRESHOLD = int(os.getenv("JOURNAL_H_INDEX_THRESHOLD", 20))
+MIN_CITATION_COUNT = int(os.getenv("MIN_CITATION_COUNT", 3))  # Minimum citations for academic papers
 USER_AGENT = os.getenv("USER_AGENT", "Mozilla/5.0 (compatible; DeepResearchBot/1.0)")
 
 # Paths
