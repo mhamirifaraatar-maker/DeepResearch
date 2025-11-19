@@ -8,3 +8,4 @@ python-dotenv
 numpy
 streamlit
 python-docx
+nest_asyncio

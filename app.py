@@ -105,14 +105,21 @@ with st.expander("Advanced Options"):
 if start_btn and subject:
     status_container = st.status("Starting research...", expanded=True)
     
+    # Apply nest_asyncio to allow nested event loops if needed
+    import nest_asyncio
+    nest_asyncio.apply()
+
     # Add log expander
     log_expander = st.expander("View Logs", expanded=False)
-    log_handler = StreamlitHandler(log_expander)
+    # log_handler = StreamlitHandler(log_expander)
     # Only attach to deep_research logger to avoid threading issues with external libs (like google-genai)
     # and to reduce noise in the UI.
-    logger = logging.getLogger("deep_research")
-    logger.addHandler(log_handler)
-    logger.setLevel(logging.INFO)
+    # logger = logging.getLogger("deep_research")
+    # logger.addHandler(log_handler)
+    # logger.setLevel(logging.INFO)
+    
+    # Fallback logging to console only for stability
+    logging.basicConfig(level=logging.INFO)
 
     async def run_research():
         try:
@@ -151,11 +158,18 @@ if start_btn and subject:
             return report
             
         except Exception as e:
-            status_container.error(f"Error: {str(e)}")
+            import traceback
+            err_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
+            status_container.error(err_msg)
+            st.error(err_msg) # Also show outside status container
             return None
 
     # Run async loop
-    report = asyncio.run(run_research())
+    try:
+        report = asyncio.run(run_research())
+    except Exception as e:
+        st.error(f"Critical Error in Event Loop: {e}")
+        report = None
     
     if report:
         st.success("Research completed successfully!")
