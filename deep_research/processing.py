@@ -50,10 +50,19 @@ def compress_text(html: str, max_tokens: int) -> str:
     """Extract main text from HTML and truncate to max_tokens."""
     if not html or len(html) < 10:
         return ""
+    
+    # If it doesn't look like HTML, treat as plain text
+    if not ("<html" in html.lower() or "<body" in html.lower() or "<div" in html.lower()):
+        text = html
+    else:
+        text = trafilatura.extract(html, include_comments=False, include_tables=False)
         
-    text = trafilatura.extract(html, include_comments=False, include_tables=False)
     if not text:
-        return ""
+        # Fallback if extraction failed but there was content
+        if len(html) > 0 and not ("<html" in html.lower()):
+             text = html
+        else:
+             return ""
     
     # Simple truncation based on estimated tokens
     if token_count(text) > max_tokens:
@@ -62,11 +71,15 @@ def compress_text(html: str, max_tokens: int) -> str:
 
 def is_quality_page(text: str, source_type: str = "web") -> bool:
     """Check if the text content is of sufficient quality."""
-    if not text or len(text) < 500:
+    if not text:
         return False
-        
+
+    # Academic papers might be just abstracts, so we allow shorter text
     if source_type == "semantic_scholar":
-        return True
+        return len(text) >= 100
+
+    if len(text) < 500:
+        return False
         
     # Check for hype words
     text_lower = text.lower()
