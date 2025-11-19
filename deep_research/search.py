@@ -129,14 +129,39 @@ async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
     }
     
     snippets = []
+    backoff = 2
+    max_retries = 5
+    data = None
+
+    for attempt in range(max_retries + 1):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=params) as resp:
+                    if resp.status == 429:
+                        if attempt < max_retries:
+                            wait_time = backoff * (2 ** attempt)
+                            logger.warning(f"Semantic Scholar rate limit (429). Retrying in {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.error("Semantic Scholar rate limit exceeded after retries.")
+                            return []
+
+                    if resp.status != 200:
+                        logger.error(f"Semantic Scholar error: {resp.status}")
+                        return []
+                    data = await resp.json()
+                    break # Success
+        except Exception as e:
+            if attempt == max_retries:
+                logger.error(f"Semantic search failed for '{query}': {e}")
+                return []
+            await asyncio.sleep(1)
+            
+    if not data:
+        return []
+
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, params=params) as resp:
-                if resp.status != 200:
-                    logger.error(f"Semantic Scholar error: {resp.status}")
-                    return []
-                data = await resp.json()
-                
         papers = data.get("data", [])
         for p in papers:
             # Construct metadata
@@ -162,7 +187,7 @@ async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
             snippets.append(s)
             
     except Exception as e:
-        logger.error(f"Semantic search failed for '{query}': {e}")
+        logger.error(f"Semantic search processing failed for '{query}': {e}")
         
     return snippets
 
