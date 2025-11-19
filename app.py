@@ -2,10 +2,32 @@ import streamlit as st
 import asyncio
 import os
 from pathlib import Path
+
+# Load secrets into env for compatibility with config.py
+if "GEMINI_KEY" in st.secrets:
+    os.environ["GEMINI_KEY"] = st.secrets["GEMINI_KEY"]
+if "BRAVE_API_KEY" in st.secrets:
+    os.environ["BRAVE_API_KEY"] = st.secrets["BRAVE_API_KEY"]
+if "UNPAYWALL_EMAIL" in st.secrets:
+    os.environ["UNPAYWALL_EMAIL"] = st.secrets["UNPAYWALL_EMAIL"]
+
 from deep_research.core import generate_keywords, filter_snippets, save_bibliometrics, synthesise
 from deep_research.search import search_all
 from deep_research.utils import build_doc, safe_save
 from deep_research.config import OUTPUT_FILE, BIBLIO_FILE, GEMINI_KEY, BRAVE_API_KEY
+import logging
+
+# Setup logging to Streamlit
+class StreamlitHandler(logging.Handler):
+    def __init__(self, container):
+        super().__init__()
+        self.container = container
+
+    def emit(self, record):
+        msg = self.format(record)
+        self.container.code(msg, language=None)
+
+# Page Config
 
 # Page Config
 st.set_page_config(
@@ -70,6 +92,13 @@ with st.expander("Advanced Options"):
 if start_btn and subject:
     status_container = st.status("Starting research...", expanded=True)
     
+    # Add log expander
+    log_expander = st.expander("View Logs", expanded=False)
+    log_handler = StreamlitHandler(log_expander)
+    logger = logging.getLogger()
+    logger.addHandler(log_handler)
+    logger.setLevel(logging.INFO)
+
     async def run_research():
         try:
             # 1. Keywords
