@@ -105,7 +105,7 @@ with col2:
 with st.expander("Advanced Options"):
     c1, c2 = st.columns(2)
     with c1:
-        general_rounds = st.number_input("General Search Rounds", min_value=1, max_value=10, value=3)
+        general_rounds = st.number_input("General Search Rounds", min_value=0, max_value=10, value=3)
     with c2:
         academic_rounds = st.number_input("Academic Search Rounds", min_value=0, max_value=10, value=2)
 
