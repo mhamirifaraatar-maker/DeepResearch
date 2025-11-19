@@ -42,7 +42,8 @@ class TestSemanticRetry(unittest.TestCase):
             mock_get_ctx.__aenter__.side_effect = [mock_resp_429, mock_resp_429, mock_resp_200]
             
             # Run the function
-            results = await semantic_search("test query", limit=1)
+            semaphore = asyncio.Semaphore(1)
+            results = await semantic_search("test query", semaphore, limit=1)
             
             # Verify results
             self.assertEqual(len(results), 1)

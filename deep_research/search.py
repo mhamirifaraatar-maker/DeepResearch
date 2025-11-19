@@ -119,7 +119,7 @@ async def brave_search(query: str, session: aiohttp.ClientSession, semaphore: as
         
     return snippets
 
-async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
+async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int = 20) -> List[Snippet]:
     """Search using Semantic Scholar API."""
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
     params = {
@@ -135,23 +135,24 @@ async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
 
     for attempt in range(max_retries + 1):
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params) as resp:
-                    if resp.status == 429:
-                        if attempt < max_retries:
-                            wait_time = backoff * (2 ** attempt)
-                            logger.warning(f"Semantic Scholar rate limit (429). Retrying in {wait_time}s...")
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            logger.error("Semantic Scholar rate limit exceeded after retries.")
-                            return []
+            async with semaphore:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params=params) as resp:
+                        if resp.status == 429:
+                            if attempt < max_retries:
+                                wait_time = backoff * (2 ** attempt)
+                                logger.warning(f"Semantic Scholar rate limit (429). Retrying in {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                                continue
+                            else:
+                                logger.error("Semantic Scholar rate limit exceeded after retries.")
+                                return []
 
-                    if resp.status != 200:
-                        logger.error(f"Semantic Scholar error: {resp.status}")
-                        return []
-                    data = await resp.json()
-                    break # Success
+                        if resp.status != 200:
+                            logger.error(f"Semantic Scholar error: {resp.status}")
+                            return []
+                        data = await resp.json()
+                        break # Success
         except Exception as e:
             if attempt == max_retries:
                 logger.error(f"Semantic search failed for '{query}': {e}")
@@ -217,6 +218,7 @@ async def search_all(keywords_dict: Dict[str, List[str]]) -> List[Snippet]:
     """Orchestrate search across all sources."""
     all_snippets = []
     semaphore = asyncio.Semaphore(CONCURRENCY)
+    semantic_semaphore = asyncio.Semaphore(1) # Limit Semantic Scholar to 1 concurrent request
     
     async with aiohttp.ClientSession() as session:
         tasks = []
@@ -229,7 +231,7 @@ async def search_all(keywords_dict: Dict[str, List[str]]) -> List[Snippet]:
         # but could share if refactored. Keeping separate to avoid complex session sharing for now)
         semantic_tasks = []
         for q in keywords_dict.get("academic", []):
-            semantic_tasks.append(semantic_search(q))
+            semantic_tasks.append(semantic_search(q, semantic_semaphore))
             
         # Execute
         brave_results = await asyncio.gather(*tasks)

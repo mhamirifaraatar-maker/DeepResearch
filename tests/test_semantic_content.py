@@ -40,7 +40,8 @@ class TestSemanticContent(unittest.TestCase):
             mock_session.get.return_value.__aenter__.return_value = mock_resp
             
             # Run search
-            results = await semantic_search("query", limit=1)
+            semaphore = asyncio.Semaphore(1)
+            results = await semantic_search("query", semaphore, limit=1)
             
             # Verify
             self.assertEqual(len(results), 1)
