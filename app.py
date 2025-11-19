@@ -108,7 +108,9 @@ if start_btn and subject:
     # Add log expander
     log_expander = st.expander("View Logs", expanded=False)
     log_handler = StreamlitHandler(log_expander)
-    logger = logging.getLogger()
+    # Only attach to deep_research logger to avoid threading issues with external libs (like google-genai)
+    # and to reduce noise in the UI.
+    logger = logging.getLogger("deep_research")
     logger.addHandler(log_handler)
     logger.setLevel(logging.INFO)
 
