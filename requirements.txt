@@ -1,0 +1,9 @@
+aiohttp
+google-genai
+trafilatura
+pdfplumber
+docx2txt
+scikit-learn
+python-dotenv
+numpy
+streamlit
