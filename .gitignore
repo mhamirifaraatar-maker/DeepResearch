@@ -6,6 +6,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.streamlit/secrets.toml
+secrets.toml
+*.toml
 
 # Python
 __pycache__/

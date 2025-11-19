@@ -45,18 +45,31 @@ with st.sidebar:
     st.header("⚙️ Settings")
     
     # API Keys (Optional override)
-    new_gemini = st.text_input("Gemini API Key", value=GEMINI_KEY or "", type="password")
-    new_brave = st.text_input("Brave API Key", value=BRAVE_API_KEY or "", type="password")
+    st.markdown("### API Keys")
     
-    if new_gemini and new_gemini != GEMINI_KEY:
+    # Gemini
+    if GEMINI_KEY:
+        st.success("✅ Gemini API Key loaded")
+        new_gemini = st.text_input("Override Gemini API Key", type="password", placeholder="Enter new key to override")
+    else:
+        st.warning("⚠️ Gemini API Key missing")
+        new_gemini = st.text_input("Gemini API Key", type="password")
+
+    # Brave
+    if BRAVE_API_KEY:
+        st.success("✅ Brave API Key loaded")
+        new_brave = st.text_input("Override Brave API Key", type="password", placeholder="Enter new key to override")
+    else:
+        st.warning("⚠️ Brave API Key missing")
+        new_brave = st.text_input("Brave API Key", type="password")
+    
+    if new_gemini:
         os.environ["GEMINI_KEY"] = new_gemini
-        # Force reload of client if needed, but for now env var is enough for next call if we didn't cache client too hard
-        # Actually core.py uses a global client that is lazy loaded. 
-        # If we change the key, we might need to reset it.
+        # Force reload of client
         from deep_research import core
         core._client = None 
         
-    if new_brave and new_brave != BRAVE_API_KEY:
+    if new_brave:
         from deep_research import config
         config.BRAVE_API_KEY = new_brave
 
