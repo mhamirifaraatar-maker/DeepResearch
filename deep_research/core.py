@@ -22,8 +22,8 @@ def get_client():
 
 async def gemini_complete(prompt: str, max_tokens: int = 6000) -> str:
     """Generate text using Gemini."""
-    max_retries = 3
-    backoff = 1
+    max_retries = 5
+    backoff = 2
     
     for attempt in range(max_retries + 1):
         try:

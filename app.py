@@ -118,8 +118,11 @@ if start_btn and subject:
     # Add log expander
     log_expander = st.expander("View Logs", expanded=False)
     
-    # Fallback logging to console only for stability
-    logging.basicConfig(level=logging.INFO)
+    # Setup logging
+    st_handler = StreamlitHandler(log_expander)
+    root_logger = logging.getLogger()
+    root_logger.addHandler(st_handler)
+    root_logger.setLevel(logging.INFO)
 
     async def run_research():
         try:
@@ -173,6 +176,10 @@ if start_btn and subject:
         st.error(f"Critical Error in Event Loop: {e}")
         st.session_state.report = None
         st.session_state.biblio_text = None
+    finally:
+        # Cleanup logger
+        if 'st_handler' in locals():
+            root_logger.removeHandler(st_handler)
 
 # Display Results if available in session state
 if st.session_state.report:
