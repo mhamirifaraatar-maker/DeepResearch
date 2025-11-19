@@ -56,14 +56,41 @@ async def brave_search(query: str, session: aiohttp.ClientSession, semaphore: as
     params = {"q": query, "count": 10}
     
     snippets = []
-    try:
-        async with semaphore:
-            async with session.get(url, headers=headers, params=params) as resp:
-                if resp.status != 200:
-                    logger.error(f"Brave API error: {resp.status}")
-                    return []
-                data = await resp.json()
-                
+    backoff = 1
+    max_retries = 3
+    data = None
+
+    # Retry loop for API call
+    for attempt in range(max_retries + 1):
+        try:
+            async with semaphore:
+                async with session.get(url, headers=headers, params=params) as resp:
+                    if resp.status == 429:
+                        if attempt < max_retries:
+                            wait_time = backoff * (2 ** attempt)
+                            logger.warning(f"Brave API rate limit (429). Retrying in {wait_time}s...")
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.error("Brave API rate limit exceeded after retries.")
+                            return []
+                            
+                    if resp.status != 200:
+                        logger.error(f"Brave API error: {resp.status}")
+                        return []
+                    
+                    data = await resp.json()
+                    break # Success
+        except Exception as e:
+            if attempt == max_retries:
+                logger.error(f"Brave search connection error: {e}")
+                return []
+            await asyncio.sleep(1)
+
+    if not data:
+        return []
+
+    try:     
         results = data.get("web", {}).get("results", [])
         
         # Fetch content for each result
@@ -88,7 +115,7 @@ async def brave_search(query: str, session: aiohttp.ClientSession, semaphore: as
             snippets.append(s)
             
     except Exception as e:
-        logger.error(f"Brave search failed for '{query}': {e}")
+        logger.error(f"Brave search processing failed for '{query}': {e}")
         
     return snippets
 

@@ -42,6 +42,9 @@ def token_count(text: str) -> int:
 
 def compress_text(html: str, max_tokens: int) -> str:
     """Extract main text from HTML and truncate to max_tokens."""
+    if not html or len(html) < 10:
+        return ""
+        
     text = trafilatura.extract(html, include_comments=False, include_tables=False)
     if not text:
         return ""
