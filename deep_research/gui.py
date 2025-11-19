@@ -11,34 +11,29 @@ from .core import generate_keywords, filter_snippets, save_bibliometrics, synthe
 from .search import search_all
 from .utils import build_doc, safe_save, logger
 
+import queue
+import logging
+
+class QueueHandler(logging.Handler):
+    """Log handler that writes to a queue."""
+    def __init__(self, log_queue):
+        super().__init__()
+        self.log_queue = log_queue
+
+    def emit(self, record):
+        self.log_queue.put(record)
+
 class GUILogger:
-    """Redirects print statements to GUI"""
-    def __init__(self, text_widget):
-        self.text_widget = text_widget
-        self.terminal = sys.__stdout__
+    """Legacy wrapper for print redirection if needed, but we use logging now."""
+    def __init__(self, log_queue):
+        self.log_queue = log_queue
         
     def write(self, message):
         if message and message.strip():
-            try:
-                self.text_widget.config(state='normal')
-                self.text_widget.insert(tk.END, message + "\n")
-                self.text_widget.see(tk.END)
-                self.text_widget.config(state='disabled')
-                self.text_widget.update()
-            except:
-                pass
-        if self.terminal:
-            try:
-                self.terminal.write(message)
-            except:
-                pass
-        
+            self.log_queue.put(logging.makeLogRecord({'msg': message, 'levelno': logging.INFO}))
+            
     def flush(self):
-        if self.terminal:
-            try:
-                self.terminal.flush()
-            except:
-                pass
+        pass
 
 class ResearchGUI:
     def __init__(self, root):
@@ -52,8 +47,10 @@ class ResearchGUI:
         self.academic_var = tk.IntVar(value=2)
         self.is_running = False
         self.stop_event = threading.Event()
+        self.log_queue = queue.Queue()
         
         self.setup_ui()
+        self.poll_log_queue()
         
     def setup_ui(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -123,11 +120,11 @@ class ResearchGUI:
         self.log_text.config(state='disabled')
         
         # Redirect logs
-        self.logger = GUILogger(self.log_text)
-        # We need to hook into the logging module, not just stdout
-        import logging
+        self.log_handler = QueueHandler(self.log_queue)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        self.log_handler.setFormatter(formatter)
+        
         root_logger = logging.getLogger()
-        self.log_handler = logging.StreamHandler(self.logger)
         root_logger.addHandler(self.log_handler)
         
         threading.Thread(target=self.run_async_research, daemon=True).start()
@@ -202,13 +199,30 @@ class ResearchGUI:
         self.is_running = False
         self.root.after(0, self.reset_ui)
         
+    def poll_log_queue(self):
+        """Check for new logs in the queue and update UI."""
+        try:
+            while True:
+                record = self.log_queue.get_nowait()
+                msg = self.log_handler.format(record) if hasattr(self, 'log_handler') and isinstance(record, logging.LogRecord) else str(record.msg if hasattr(record, 'msg') else record)
+                
+                self.log_text.config(state='normal')
+                self.log_text.insert(tk.END, msg + "\n")
+                self.log_text.see(tk.END)
+                self.log_text.config(state='disabled')
+        except queue.Empty:
+            pass
+        finally:
+            self.root.after(100, self.poll_log_queue)
+
     def reset_ui(self):
         self.progress.stop()
         self.start_btn.config(state='normal')
         self.stop_btn.config(state='disabled')
         # Remove handler
-        import logging
-        logging.getLogger().removeHandler(self.log_handler)
+        if hasattr(self, 'log_handler'):
+            import logging
+            logging.getLogger().removeHandler(self.log_handler)
 
 def main():
     root = tk.Tk()

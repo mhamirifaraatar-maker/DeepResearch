@@ -22,20 +22,32 @@ def get_client():
 
 async def gemini_complete(prompt: str, max_tokens: int = 6000) -> str:
     """Generate text using Gemini."""
-    try:
-        client = get_client()
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config=genai.types.GenerateContentConfig(
-                max_output_tokens=max_tokens,
-                temperature=0.3
+    max_retries = 3
+    backoff = 1
+    
+    for attempt in range(max_retries + 1):
+        try:
+            client = get_client()
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=genai.types.GenerateContentConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=0.3
+                )
             )
-        )
-        return response.text
-    except Exception as e:
-        log_error("Gemini", str(e))
-        return ""
+            return response.text
+        except Exception as e:
+            error_str = str(e)
+            if "503" in error_str or "429" in error_str:
+                if attempt < max_retries:
+                    wait_time = backoff * (2 ** attempt)
+                    logger.warning(f"Gemini API error ({error_str}). Retrying in {wait_time}s...")
+                    await asyncio.sleep(wait_time)
+                    continue
+            
+            log_error("Gemini", error_str)
+            return ""
 
 async def generate_keywords(subject: str, english_rounds: int, academic_rounds: int) -> Dict[str, List[str]]:
     """Generate search keywords using Gemini."""
