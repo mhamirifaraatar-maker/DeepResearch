@@ -128,13 +128,14 @@ def generate_bibliometrics(snippets: List[Snippet]) -> str:
     lines.extend(["", "=" * 80, "END OF REPORT", "=" * 80])
     return "\n".join(lines)
 
-def save_bibliometrics(snippets: List[Snippet]):
-    """Save bibliometrics to file."""
+def save_bibliometrics(snippets: List[Snippet]) -> str:
+    """Save bibliometrics to file and return the content."""
     text = generate_bibliometrics(snippets)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = BIBLIO_FILE.with_name(f"{BIBLIO_FILE.stem}_{timestamp}.txt")
     path.write_text(text, encoding="utf-8")
     logger.info(f"✅ Bibliometrics saved → {path}")
+    return text
 
 async def synthesise(snippets: List[Snippet], subject: str) -> str:
     """Synthesize snippets into a final report."""

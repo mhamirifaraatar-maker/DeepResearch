@@ -148,28 +148,29 @@ if start_btn and subject:
             
             # 4. Bibliometrics
             status_container.write("📊 Generating bibliometrics...")
-            save_bibliometrics(snippets)
+            biblio_text = save_bibliometrics(snippets)
             
             # 5. Synthesis
             status_container.write("🧠 Synthesizing report...")
             report = await synthesise(snippets, subject)
             
             status_container.update(label="Research Complete!", state="complete", expanded=False)
-            return report
+            return report, biblio_text
             
         except Exception as e:
             import traceback
             err_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
             status_container.error(err_msg)
             st.error(err_msg) # Also show outside status container
-            return None
+            return None, None
 
     # Run async loop
     try:
-        report = asyncio.run(run_research())
+        report, biblio_text = asyncio.run(run_research())
     except Exception as e:
         st.error(f"Critical Error in Event Loop: {e}")
         report = None
+        biblio_text = None
     
     if report:
         st.success("Research completed successfully!")
@@ -179,7 +180,7 @@ if start_btn and subject:
         st.markdown(report)
         
         # Download Buttons
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         
         # DOCX
         doc = build_doc(report)
@@ -205,3 +206,13 @@ if start_btn and subject:
                 file_name=f"{subject.replace(' ', '_')}_report.md",
                 mime="text/markdown"
             )
+
+        # Bibliometrics
+        if biblio_text:
+            with c3:
+                st.download_button(
+                    label="📥 Download Bibliometrics",
+                    data=biblio_text,
+                    file_name=f"{subject.replace(' ', '_')}_bibliometrics.txt",
+                    mime="text/plain"
+                )
