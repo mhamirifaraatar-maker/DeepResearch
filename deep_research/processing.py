@@ -13,7 +13,7 @@ import logging
 # Suppress PDF and Trafilatura warnings
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
 logging.getLogger("pdfplumber").setLevel(logging.ERROR)
-logging.getLogger("trafilatura").setLevel(logging.ERROR)
+logging.getLogger("trafilatura").setLevel(logging.CRITICAL)
 
 # Regex patterns
 HYPE_PATTERNS = {
