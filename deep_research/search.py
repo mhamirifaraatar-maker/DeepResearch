@@ -161,9 +161,8 @@ async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
     if not data:
         return []
 
-    try:
-        papers = data.get("data", [])
-        for p in papers:
+    async def process_paper(session, p):
+        try:
             # Construct metadata
             meta = {
                 "year": p.get("year"),
@@ -173,18 +172,41 @@ async def semantic_search(query: str, limit: int = 20) -> List[Snippet]:
                 "has_open_access": bool(p.get("openAccessPdf"))
             }
             
-            # Use abstract as body if available, else try to fetch PDF (not implemented fully here for speed)
-            body = p.get("abstract") or "Abstract not available."
+            url = p.get("openAccessPdf", {}).get("url") or p.get("url") or ""
+            abstract = p.get("abstract")
             
-            s = Snippet(
+            body = ""
+            # If abstract is decent length, use it. Otherwise try to fetch full text.
+            if abstract and len(abstract) >= 200:
+                body = abstract
+            elif url:
+                # Try to fetch full text
+                fetched = await fetch_text(session, url)
+                if fetched and len(fetched) > len(abstract or ""):
+                    body = fetched
+            
+            # Fallback
+            if not body:
+                body = abstract or "Abstract not available."
+
+            return Snippet(
                 title=p.get("title", "No Title"),
                 body=body,
-                url=p.get("url") or p.get("openAccessPdf", {}).get("url") or "",
+                url=url,
                 source_type="semantic_scholar",
                 metadata=meta,
-                abstract=p.get("abstract")
+                abstract=abstract
             )
-            snippets.append(s)
+        except Exception as e:
+            logger.warning(f"Error processing paper {p.get('title')}: {e}")
+            return None
+
+    try:
+        papers = data.get("data", [])
+        async with aiohttp.ClientSession() as session:
+            tasks = [process_paper(session, p) for p in papers]
+            results = await asyncio.gather(*tasks)
+            snippets = [r for r in results if r is not None]
             
     except Exception as e:
         logger.error(f"Semantic search processing failed for '{query}': {e}")
