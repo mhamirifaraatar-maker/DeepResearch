@@ -74,20 +74,27 @@ def build_doc(report: str) -> Document:
             continue
         
         para = doc.add_paragraph()
+        
         # Basic markdown parsing for bold and italic
         # Note: This is a simplified parser from the original code
         import re
         tokens = re.split(r"(\*\*[^*]+\*\*|\*[^*]+\*)", line)
         
         for tok in tokens:
-            if tok.startswith("**") and tok.endswith("**"):
+            if not tok:
+                continue
+                
+            if tok.startswith("**") and tok.endswith("**") and len(tok) > 4:
                 run = para.add_run(tok[2:-2])
                 run.bold = True
-            elif tok.startswith("*") and tok.endswith("*"):
+            elif tok.startswith("*") and tok.endswith("*") and len(tok) > 2:
                 run = para.add_run(tok[1:-1])
                 run.italic = True
             else:
-                run = para.add_run(tok)
+                # Fix common LLM markdown error: "*Title*:*" -> "*Title*:"
+                # Only replace if it's plain text
+                clean_tok = tok.replace(":*", ":")
+                run = para.add_run(clean_tok)
             
             run.font.name = "Times New Roman"
             run.font.size = Pt(12)
