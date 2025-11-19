@@ -75,6 +75,11 @@ def build_doc(report: str) -> Document:
         
         para = doc.add_paragraph()
         
+        # Handle bullet points
+        if line.startswith("* "):
+            para.style = 'List Bullet'
+            line = line[2:]
+        
         # Basic markdown parsing for bold and italic
         # Note: This is a simplified parser from the original code
         import re
