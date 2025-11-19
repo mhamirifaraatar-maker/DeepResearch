@@ -44,21 +44,55 @@ async def generate_keywords(subject: str, english_rounds: int, academic_rounds: 
     
     Format as JSON:
     {{
-        "general": ["query1", "query2", ...],  # {english_rounds} queries for general web search
-        "academic": ["query1", "query2", ...]   # {academic_rounds} queries for academic databases
+        "general": ["query1", "query2", ...],  # EXACTLY {english_rounds} distinct queries for general web search
+        "academic": ["query1", "query2", ...]   # EXACTLY {academic_rounds} distinct queries for academic databases
     }}
     
-    For academic queries, use precise terminology suitable for Semantic Scholar.
+    IMPORTANT:
+    - You MUST provide exactly {english_rounds} items in the "general" list.
+    - You MUST provide exactly {academic_rounds} items in the "academic" list.
+    - For academic queries, use precise terminology suitable for Semantic Scholar.
     """
     
     text = await gemini_complete(prompt, max_tokens=1000)
     try:
         # Clean markdown code blocks if present
         text = text.replace("```json", "").replace("```", "").strip()
-        return json.loads(text)
+        data = json.loads(text)
+        
+        # Validate and pad/truncate if necessary
+        gen = data.get("general", [])
+        acad = data.get("academic", [])
+        
+        # Ensure lists
+        if not isinstance(gen, list): gen = [str(gen)]
+        if not isinstance(acad, list): acad = [str(acad)]
+        
+        # Pad General
+        if len(gen) < english_rounds:
+            logger.warning(f"Gemini returned {len(gen)} general queries, expected {english_rounds}. Padding.")
+            while len(gen) < english_rounds:
+                gen.append(f"{subject} {len(gen)+1}")
+        elif len(gen) > english_rounds:
+            gen = gen[:english_rounds]
+            
+        # Pad Academic
+        if len(acad) < academic_rounds:
+            logger.warning(f"Gemini returned {len(acad)} academic queries, expected {academic_rounds}. Padding.")
+            while len(acad) < academic_rounds:
+                acad.append(f"{subject} research paper {len(acad)+1}")
+        elif len(acad) > academic_rounds:
+            acad = acad[:academic_rounds]
+            
+        return {"general": gen, "academic": acad}
+        
     except json.JSONDecodeError:
         logger.error("Failed to parse keywords JSON")
-        return {"general": [subject], "academic": [subject]}
+        # Fallback with correct counts
+        return {
+            "general": [f"{subject} {i+1}" for i in range(english_rounds)], 
+            "academic": [f"{subject} research {i+1}" for i in range(academic_rounds)]
+        }
 
 async def filter_snippets(snippets: List[Snippet]) -> List[Snippet]:
     """Filter and deduplicate snippets."""

@@ -102,6 +102,12 @@ with st.expander("Advanced Options"):
         academic_rounds = st.number_input("Academic Search Rounds", min_value=0, max_value=10, value=2)
 
 # Main Logic
+# Main Logic
+if "report" not in st.session_state:
+    st.session_state.report = None
+if "biblio_text" not in st.session_state:
+    st.session_state.biblio_text = None
+
 if start_btn and subject:
     status_container = st.status("Starting research...", expanded=True)
     
@@ -111,12 +117,6 @@ if start_btn and subject:
 
     # Add log expander
     log_expander = st.expander("View Logs", expanded=False)
-    # log_handler = StreamlitHandler(log_expander)
-    # Only attach to deep_research logger to avoid threading issues with external libs (like google-genai)
-    # and to reduce noise in the UI.
-    # logger = logging.getLogger("deep_research")
-    # logger.addHandler(log_handler)
-    # logger.setLevel(logging.INFO)
     
     # Fallback logging to console only for stability
     logging.basicConfig(level=logging.INFO)
@@ -135,7 +135,7 @@ if start_btn and subject:
             
             if not snippets:
                 status_container.error("No snippets found.")
-                return None
+                return None, None
             
             # 3. Filter
             status_container.write("🔄 Filtering and deduplicating...")
@@ -144,7 +144,7 @@ if start_btn and subject:
             
             if not snippets:
                 status_container.error("No quality snippets left.")
-                return None
+                return None, None
             
             # 4. Bibliometrics
             status_container.write("📊 Generating bibliometrics...")
@@ -167,52 +167,55 @@ if start_btn and subject:
     # Run async loop
     try:
         report, biblio_text = asyncio.run(run_research())
+        st.session_state.report = report
+        st.session_state.biblio_text = biblio_text
     except Exception as e:
         st.error(f"Critical Error in Event Loop: {e}")
-        report = None
-        biblio_text = None
-    
-    if report:
-        st.success("Research completed successfully!")
-        
-        # Display Report
-        st.markdown("## 📄 Research Report")
-        st.markdown(report)
-        
-        # Download Buttons
-        c1, c2, c3 = st.columns(3)
-        
-        # DOCX
-        doc = build_doc(report)
-        # Save to a temporary buffer for download
-        from io import BytesIO
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        
-        with c1:
-            st.download_button(
-                label="📥 Download DOCX",
-                data=buffer,
-                file_name=f"{subject.replace(' ', '_')}_report.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            )
-            
-        # Markdown
-        with c2:
-            st.download_button(
-                label="📥 Download Markdown",
-                data=report,
-                file_name=f"{subject.replace(' ', '_')}_report.md",
-                mime="text/markdown"
-            )
+        st.session_state.report = None
+        st.session_state.biblio_text = None
 
-        # Bibliometrics
-        if biblio_text:
-            with c3:
-                st.download_button(
-                    label="📥 Download Bibliometrics",
-                    data=biblio_text,
-                    file_name=f"{subject.replace(' ', '_')}_bibliometrics.txt",
-                    mime="text/plain"
-                )
+# Display Results if available in session state
+if st.session_state.report:
+    st.success("Research completed successfully!")
+    
+    # Display Report
+    st.markdown("## 📄 Research Report")
+    st.markdown(st.session_state.report)
+    
+    # Download Buttons
+    c1, c2, c3 = st.columns(3)
+    
+    # DOCX
+    doc = build_doc(st.session_state.report)
+    # Save to a temporary buffer for download
+    from io import BytesIO
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    
+    with c1:
+        st.download_button(
+            label="📥 Download DOCX",
+            data=buffer,
+            file_name=f"research_report.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        
+    # Markdown
+    with c2:
+        st.download_button(
+            label="📥 Download Markdown",
+            data=st.session_state.report,
+            file_name=f"research_report.md",
+            mime="text/markdown"
+        )
+
+    # Bibliometrics
+    if st.session_state.biblio_text:
+        with c3:
+            st.download_button(
+                label="📥 Download Bibliometrics",
+                data=st.session_state.biblio_text,
+                file_name=f"bibliometrics.txt",
+                mime="text/plain"
+            )
