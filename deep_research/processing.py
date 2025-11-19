@@ -8,6 +8,12 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Optional, Dict
 from .config import MAX_TOKENS_PER_URL, EST_CHAR_PER_TOKEN
+import logging
+
+# Suppress PDF and Trafilatura warnings
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
+logging.getLogger("pdfplumber").setLevel(logging.ERROR)
+logging.getLogger("trafilatura").setLevel(logging.ERROR)
 
 # Regex patterns
 HYPE_PATTERNS = {

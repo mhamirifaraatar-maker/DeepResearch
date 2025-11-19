@@ -70,8 +70,12 @@ with st.sidebar:
         core._client = None 
         
     if new_brave:
-        from deep_research import config
-        config.BRAVE_API_KEY = new_brave
+        import sys
+        if 'deep_research.config' in sys.modules:
+            sys.modules['deep_research.config'].BRAVE_API_KEY = new_brave
+        else:
+            from deep_research import config
+            config.BRAVE_API_KEY = new_brave
 
     st.markdown("---")
     st.markdown("### About")
