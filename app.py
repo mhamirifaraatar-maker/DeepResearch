@@ -66,8 +66,12 @@ with st.sidebar:
     if new_gemini:
         os.environ["GEMINI_KEY"] = new_gemini
         # Force reload of client
-        from deep_research import core
-        core._client = None 
+        import sys
+        if 'deep_research.core' in sys.modules:
+            sys.modules['deep_research.core']._client = None
+        else:
+            from deep_research import core
+            core._client = None 
         
     if new_brave:
         import sys
