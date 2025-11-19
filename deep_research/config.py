@@ -13,6 +13,7 @@ UNPAYWALL_EMAIL = os.getenv("UNPAYWALL_EMAIL")
 # Configuration
 MAX_URLS_PER_SOURCE = int(os.getenv("MAX_URLS_PER_SOURCE", 500))
 MAX_TOKENS_PER_URL = int(os.getenv("MAX_TOKENS_PER_URL", 2_000))
+MAX_SNIPPETS_TO_KEEP = int(os.getenv("MAX_SNIPPETS_TO_KEEP", 100))
 EST_CHAR_PER_TOKEN = 4
 CONCURRENCY = int(os.getenv("CONCURRENCY", 5))  # Increased default concurrency
 JOURNAL_H_INDEX_THRESHOLD = int(os.getenv("JOURNAL_H_INDEX_THRESHOLD", 20))

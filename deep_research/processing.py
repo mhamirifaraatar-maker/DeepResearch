@@ -85,7 +85,7 @@ def docx_to_text(data: bytes) -> str:
     except Exception:
         return ""
 
-def semantic_dedup(texts: List[str], max_keep: int = 10) -> List[int]:
+def semantic_dedup(texts: List[str], max_keep: int = 100) -> List[int]:
     """Deduplicate texts using TF-IDF and Cosine Similarity."""
     if not texts:
         return []

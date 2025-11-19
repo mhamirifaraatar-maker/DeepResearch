@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 from typing import List, Dict
 from google import genai
-from .config import GEMINI_KEY, JOURNAL_H_INDEX_THRESHOLD, MAX_TOKENS_PER_URL, BIBLIO_FILE
+from .config import GEMINI_KEY, JOURNAL_H_INDEX_THRESHOLD, MAX_TOKENS_PER_URL, BIBLIO_FILE, MAX_SNIPPETS_TO_KEEP
 from .processing import Snippet, compress_text, is_quality_page, semantic_dedup
 from .utils import logger, log_error
 
@@ -119,7 +119,7 @@ async def filter_snippets(snippets: List[Snippet]) -> List[Snippet]:
         return []
         
     # Deduplicate
-    keep_idx = semantic_dedup(bodies)
+    keep_idx = semantic_dedup(bodies, max_keep=MAX_SNIPPETS_TO_KEEP)
     
     result = []
     for idx in keep_idx:
