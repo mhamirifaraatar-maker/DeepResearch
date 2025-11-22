@@ -7,47 +7,10 @@ from typing import List, Dict
 from google import genai
 from .config import GEMINI_KEY, JOURNAL_H_INDEX_THRESHOLD, MAX_TOKENS_PER_URL, BIBLIO_FILE, MAX_SNIPPETS_TO_KEEP, MIN_CITATION_COUNT
 from .processing import Snippet, compress_text, is_quality_page, semantic_dedup
-from .utils import logger, log_error
+from .processing import Snippet, compress_text, is_quality_page, semantic_dedup
+from .utils import logger, log_error, gemini_complete
 
-# Initialize Gemini Client lazily
-_client = None
 
-def get_client():
-    global _client
-    if _client is None:
-        if not GEMINI_KEY:
-            raise ValueError("GEMINI_KEY not found in environment variables.")
-        _client = genai.Client(api_key=GEMINI_KEY)
-    return _client
-
-async def gemini_complete(prompt: str, max_tokens: int = 6000) -> str:
-    """Generate text using Gemini."""
-    max_retries = 5
-    backoff = 2
-    
-    for attempt in range(max_retries + 1):
-        try:
-            client = get_client()
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(
-                    max_output_tokens=max_tokens,
-                    temperature=0.3
-                )
-            )
-            return response.text
-        except Exception as e:
-            error_str = str(e)
-            if "503" in error_str or "429" in error_str:
-                if attempt < max_retries:
-                    wait_time = backoff * (2 ** attempt)
-                    logger.warning(f"Gemini API error ({error_str}). Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                    continue
-            
-            log_error("Gemini", error_str)
-            return ""
 
 async def generate_keywords(subject: str, english_rounds: int, academic_rounds: int) -> Dict[str, List[str]]:
     """Generate search keywords using Gemini."""

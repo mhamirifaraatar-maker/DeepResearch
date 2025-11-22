@@ -4,7 +4,8 @@ import urllib.parse
 from typing import List, Dict, Any
 from .config import BRAVE_API_KEY, MAX_URLS_PER_SOURCE, USER_AGENT, CONCURRENCY, MIN_CITATION_COUNT
 from .processing import Snippet, pdf_to_text, docx_to_text, is_quality_page, compress_text
-from .utils import logger
+from .processing import Snippet, pdf_to_text, docx_to_text, is_quality_page, compress_text
+from .utils import logger, gemini_complete
 
 # Re-implement fetch_text and resolve_url locally if they were not in processing.py
 # Wait, I didn't put fetch_text in processing.py. I should add them here or in utils. 
@@ -119,7 +120,25 @@ async def brave_search(query: str, session: aiohttp.ClientSession, semaphore: as
         
     return snippets
 
-async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int = 20) -> List[Snippet]:
+async def check_relevance(subject: str, title: str, abstract: str) -> bool:
+    """Check if a paper is relevant to the subject using Gemini."""
+    if not abstract:
+        return False
+        
+    prompt = f"""
+    Topic: "{subject}"
+    
+    Paper Title: "{title}"
+    Abstract: "{abstract}"
+    
+    Is this paper relevant to the topic? 
+    Answer strictly with YES or NO.
+    """
+    
+    response = await gemini_complete(prompt, max_tokens=10)
+    return "YES" in response.upper()
+
+async def semantic_search(query: str, semaphore: asyncio.Semaphore, subject: str, limit: int = 20) -> List[Snippet]:
     """Search using Semantic Scholar API."""
     url = "https://api.semanticscholar.org/graph/v1/paper/search"
     params = {
@@ -168,7 +187,21 @@ async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int =
             citation_count = p.get("citationCount", 0)
             if citation_count < MIN_CITATION_COUNT:
                 logger.debug(f"Filtered paper '{p.get('title', 'Unknown')}' - citations: {citation_count} < {MIN_CITATION_COUNT}")
+            if citation_count < MIN_CITATION_COUNT:
+                logger.debug(f"Filtered paper '{p.get('title', 'Unknown')}' - citations: {citation_count} < {MIN_CITATION_COUNT}")
                 return None
+            
+            # Check relevance
+            title = p.get("title", "No Title")
+            abstract = p.get("abstract")
+            
+            if subject:
+                is_relevant = await check_relevance(subject, title, abstract)
+                if not is_relevant:
+                    logger.debug(f"Filtered paper '{title}' - Not relevant to '{subject}'")
+                    return None
+                else:
+                    logger.info(f"Paper '{title}' is relevant to '{subject}'")
             
             # Construct metadata
             meta = {
@@ -179,7 +212,7 @@ async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int =
                 "has_open_access": bool(p.get("openAccessPdf"))
             }
             
-            url = p.get("openAccessPdf", {}).get("url") or p.get("url") or ""
+            url = (p.get("openAccessPdf") or {}).get("url") or p.get("url") or ""
             abstract = p.get("abstract")
             
             body = ""
@@ -220,7 +253,7 @@ async def semantic_search(query: str, semaphore: asyncio.Semaphore, limit: int =
         
     return snippets
 
-async def search_all(keywords_dict: Dict[str, List[str]]) -> List[Snippet]:
+async def search_all(keywords_dict: Dict[str, List[str]], subject: str = "") -> List[Snippet]:
     """Orchestrate search across all sources."""
     all_snippets = []
     semaphore = asyncio.Semaphore(CONCURRENCY)
@@ -237,7 +270,7 @@ async def search_all(keywords_dict: Dict[str, List[str]]) -> List[Snippet]:
         # but could share if refactored. Keeping separate to avoid complex session sharing for now)
         semantic_tasks = []
         for q in keywords_dict.get("academic", []):
-            semantic_tasks.append(semantic_search(q, semantic_semaphore))
+            semantic_tasks.append(semantic_search(q, semantic_semaphore, subject))
             
         # Execute
         brave_results = await asyncio.gather(*tasks)

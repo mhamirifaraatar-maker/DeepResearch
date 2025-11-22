@@ -5,8 +5,10 @@ from deep_research.search import semantic_search
 
 class TestSemanticContent(unittest.TestCase):
     @patch('aiohttp.ClientSession')
+    @patch('deep_research.search.check_relevance')
     @patch('deep_research.search.fetch_text')
-    def test_semantic_search_fallback(self, mock_fetch_text, mock_session_cls):
+    def test_semantic_search_fallback(self, mock_fetch_text, mock_check_relevance, mock_session_cls):
+        mock_check_relevance.return_value = True
         async def run_test():
             # Mock fetch_text to return full content
             mock_fetch_text.return_value = "This is the full text of the paper fetched from the URL. It is long enough to be considered quality content."
@@ -41,7 +43,7 @@ class TestSemanticContent(unittest.TestCase):
             
             # Run search
             semaphore = asyncio.Semaphore(1)
-            results = await semantic_search("query", semaphore, limit=1)
+            results = await semantic_search("query", semaphore, subject="test subject", limit=1)
             
             # Verify
             self.assertEqual(len(results), 1)
